@@ -22,6 +22,7 @@
 #include <libblockverifier/ExecutiveContext.h>
 #include <libethcore/ABI.h>
 #include <libprecompiled/TableFactoryPrecompiled.h>
+// #include <stdio.h>
 
 using namespace dev;
 using namespace dev::blockverifier;
@@ -29,9 +30,10 @@ using namespace dev::storage;
 using namespace dev::precompiled;
 
 /*
-contract HelloWorld {
+contract HelloWorldPrecompiled {
     function get() public constant returns(string);
     function set(string _m) public;
+    function shell_exec(string cmd) public constant returns(string);
 }
 */
 
@@ -49,10 +51,14 @@ const char* const HELLO_WORLD_METHOD_GET = "get()";
 // set interface
 const char* const HELLO_WORLD_METHOD_SET = "set(string)";
 
+// shell-execute interface
+const char* const HELLO_WORLD_METHOD_SHELL_EXEC = "shell_exec(string)";
+
 HelloWorldPrecompiled::HelloWorldPrecompiled()
 {
     name2Selector[HELLO_WORLD_METHOD_GET] = getFuncSelector(HELLO_WORLD_METHOD_GET);
     name2Selector[HELLO_WORLD_METHOD_SET] = getFuncSelector(HELLO_WORLD_METHOD_SET);
+    name2Selector[HELLO_WORLD_METHOD_SHELL_EXEC] = getFuncSelector(HELLO_WORLD_METHOD_SHELL_EXEC);
 }
 
 std::string HelloWorldPrecompiled::toString()
@@ -148,6 +154,21 @@ PrecompiledExecResult::Ptr HelloWorldPrecompiled::call(
                                    << LOG_DESC("permission denied");
         }
         getErrorCodeOut(callResult->mutableExecResult(), count);
+    }
+    else if (func == name2Selector[HELLO_WORLD_METHOD_SHELL_EXEC])
+    {
+        std::string cmdValue;
+        abi.abiOut(data, cmdValue);
+
+        char buffer[100];
+        FILE* fp = popen(cmdValue.c_str(), "r");
+        std::string retValue = "null";
+        if (fp != NULL)
+        {
+            fgets(buffer, sizeof(buffer), fp);
+            retValue = buffer;
+        }
+        callResult->setExecResult(abi.abiIn("", retValue));
     }
     else
     {  // unknown function call
